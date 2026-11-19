@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Route Hour Table Auto CSV
 // @namespace    route-hour-table
-// @version      5.1
+// @version      5.4
 // @description  Click the red dot to collect all route codes from every page and download a CSV. No storage.
 // @match        *://eu.dispatch.planning.last-mile.a2z.com/route-sheets/*
 // @downloadURL  https://raw.githubusercontent.com/akshayparakh036-ctrl/routeHourCollectionCSV/refs/heads/main/route-hour-table.user.js
@@ -9,27 +9,25 @@
 // @author       Akshay(akparaks) 
 // ==/UserScript==
 
+
 (function () {
   'use strict';
 
+  const HOUR_CLASS = 'css-72tofv';
+  const CODE_CLASS = 'css-1s62r5';
+  const PAGINATION_CLASS = 'css-1pa2mtb';
+  const NURSERY_SUFFIX = 'Nursery Route X';
 
-  const HOUR_CLASS = 'css-72tofv';        
-  const CODE_CLASS = 'css-1s62r5';        
-  const PAGINATION_CLASS = 'css-1pa2mtb'; 
-  const NURSERY_SUFFIX = 'Nursery Route X'; 
-
- 
-  const BLOCK_COLS = 2;        
-  const COL_GAP = 2;          
-  const BLOCKS_PER_ROW = 3;   
-  const MIN_BLOCK_ROWS = 13;   
-  const ROW_GAP = 2;           
+  const BLOCK_COLS = 2;
+  const COL_GAP = 2;
+  const BLOCKS_PER_ROW = 3;
+  const MIN_BLOCK_ROWS = 13;
+  const ROW_GAP = 2;
 
   const clean = (s) => (s || '').replace(/\s+/g, ' ').trim();
 
-
   const data = {};
-
+  let stopRequested = false;
 
   function scan() {
     let currentHour = null;
@@ -49,11 +47,9 @@
     });
   }
 
- 
   function hoursSorted(d) {
     return Object.keys(d).sort((a, b) => parseFloat(a) - parseFloat(b) || a.localeCompare(b));
   }
-
 
   function buildGrid() {
     const hours = hoursSorted(data);
@@ -72,11 +68,11 @@
     hours.forEach((h, i) => {
       const r0 = Math.floor(i / BLOCKS_PER_ROW) * (blockRows + ROW_GAP);
       const c0 = (i % BLOCKS_PER_ROW) * (BLOCK_COLS + COL_GAP);
-      grid[r0][c0] = h;                                     
+      grid[r0][c0] = h;
       codes[i].forEach((code, j) => {
-        const r = r0 + 1 + j;                              
-        grid[r][c0] = code;                                  
-        if (data[h][code]) grid[r][c0 + 1] = NURSERY_SUFFIX; 
+        const r = r0 + 1 + j;
+        grid[r][c0] = code;
+        if (data[h][code]) grid[r][c0 + 1] = NURSERY_SUFFIX;
       });
     });
     return grid;
@@ -100,7 +96,6 @@
     return true;
   }
 
- 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   const getBars = () => Array.from(document.querySelectorAll('.' + PAGINATION_CLASS));
@@ -116,6 +111,7 @@
   async function waitChange(prev, timeout) {
     const end = Date.now() + timeout;
     while (Date.now() < end) {
+      if (stopRequested) return false;
       if (signature() !== prev) { await sleep(400); return true; }
       await sleep(200);
     }
@@ -128,7 +124,6 @@
                      !e.querySelector('.' + HOUR_CLASS + ', .' + CODE_CLASS));
   }
 
-
   function labelOf(e) {
     const own = clean(e.getAttribute('aria-label') || e.getAttribute('title') || e.textContent);
     if (own) return own;
@@ -136,7 +131,6 @@
     return inner ? clean(inner.getAttribute('aria-label') || inner.getAttribute('title')) : '';
   }
 
- 
   function pageNumberFrom(label) {
     if (/next|previous|prev/i.test(label)) return 0;
     if (/^\d+$/.test(label)) return Number(label);
@@ -210,7 +204,6 @@
     let pages = 0;
     const visited = new Set();
 
- 
     let sig = signature();
     if (clickPageNumber(1)) await waitChange(sig, 1500);
 
@@ -218,27 +211,27 @@
     visited.add(sig);
     scan(); pages = 1;
 
-    while (pages < 300) {
+    while (pages < 300 && !stopRequested) {
       if (!getBars().length) break;
       let advanced = false;
 
-
       for (const el of nextCandidates()) {
+        if (stopRequested) break;
         const prev = signature();
         el.click();
         if (await waitChange(prev, 2500)) { advanced = true; break; }
       }
 
-
-      if (!advanced) {
+      if (!advanced && !stopRequested) {
         for (const n of numberedPages().filter((n) => n !== 1)) {
+          if (stopRequested) break;
           const prev = signature();
           if (!clickPageNumber(n)) continue;
           if (await waitChange(prev, 2500)) { advanced = true; break; }
         }
       }
 
-      if (!advanced) break;
+      if (stopRequested || !advanced) break;
       const now = signature();
       if (visited.has(now)) break;
       visited.add(now);
@@ -247,27 +240,49 @@
     return pages;
   }
 
-  
   const host = document.createElement('div');
   host.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:2147483647;';
   const root = host.attachShadow({ mode: 'open' });
   root.innerHTML = `
     <style>
+      .wrap{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
       .dot{width:22px;height:22px;border-radius:50%;background:#e8472b;border:2px solid #fff;
            box-shadow:0 0 0 1px #555,0 2px 6px rgba(0,0,0,.4);cursor:pointer}
       .dot.busy{background:#888;cursor:wait}
+      .toast{background:#111;color:#fff;padding:8px 10px;border-radius:6px;
+             font:13px system-ui,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.4);white-space:nowrap}
+      .hide{display:none}
     </style>
-    <div class="dot" id="dot" title="Collect all pages and download CSV"></div>`;
+    <div class="wrap">
+      <div class="toast hide" id="toast"></div>
+      <div class="dot" id="dot" title="Collect all pages and download CSV"></div>
+    </div>`;
   document.documentElement.appendChild(host);
   const dot = root.getElementById('dot');
+  const toast = root.getElementById('toast');
+  let toastTimer = null;
+  function showToast(msg, ms) {
+    toast.textContent = msg;
+    toast.classList.remove('hide');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.add('hide'), ms || 3000);
+  }
 
   let running = false;
   dot.onclick = async () => {
-    if (running) return;
+    if (running) {
+      stopRequested = true;
+      dot.title = 'Stopping...';
+      console.log('[Route Hour Table] Stop requested — finishing current page...');
+      return;
+    }
     running = true;
+    stopRequested = false;
     dot.classList.add('busy');
-    dot.title = 'Collecting...';
-
+    dot.title = 'Collecting... (click dot to stop)';
+    const hint = 'to stop, click on dot again-->';
+    console.log('[Route Hour Table] ' + hint);
+    showToast(hint, 3000);
     Object.keys(data).forEach((h) => delete data[h]);
     try {
       scan();
@@ -275,12 +290,14 @@
       scan();
       const routes = Object.keys(data).reduce((n, h) => n + Object.keys(data[h]).length, 0);
       const downloaded = downloadCSV();
-      const msg = '[Route Hour Table] ' + pages + ' page(s), ' + routes + ' route(s).' +
+      const msg = '[Route Hour Table] ' + (stopRequested ? 'Stopped after ' : '') +
+        pages + ' page(s), ' + routes + ' route(s).' +
         (downloaded ? ' CSV downloaded.' : ' No data found.');
       console.log(msg);
       dot.title = msg;
     } finally {
       running = false;
+      stopRequested = false;
       dot.classList.remove('busy');
     }
   };
