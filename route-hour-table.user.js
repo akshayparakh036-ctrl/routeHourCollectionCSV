@@ -4,8 +4,8 @@
 // @version      5.1
 // @description  Click the red dot to collect all route codes from every page and download a CSV. No storage.
 // @match        *://eu.dispatch.planning.last-mile.a2z.com/route-sheets/*
-// @downloadURL  https://raw.githubusercontent.com/USERNAME/REPO/main/route-hour-table.userV4.js
-// @updateURL    https://raw.githubusercontent.com/USERNAME/REPO/main/route-hour-table.userV4.js
+// @downloadURL  https://raw.githubusercontent.com/akshayparakh036-ctrl/routeHourCollectionCSV/refs/heads/main/route-hour-table.user.js
+// @updateURL    https://raw.githubusercontent.com/akshayparakh036-ctrl/routeHourCollectionCSV/refs/heads/main/route-hour-table.user.js
 // @author       Akshay(akparaks) 
 // ==/UserScript==
 
