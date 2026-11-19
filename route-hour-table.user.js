@@ -3,7 +3,7 @@
 // @namespace    route-hour-table
 // @version      5.1
 // @description  Click the red dot to collect all route codes from every page and download a CSV. No storage.
-// @match        *://REPLACE-SITE-HOST/*
+// @match        *://eu.dispatch.planning.last-mile.a2z.com/route-sheets/*
 // @downloadURL  https://raw.githubusercontent.com/USERNAME/REPO/main/route-hour-table.userV4.js
 // @updateURL    https://raw.githubusercontent.com/USERNAME/REPO/main/route-hour-table.userV4.js
 // @author       Akshay(akparaks) 
@@ -12,30 +12,25 @@
 (function () {
   'use strict';
 
-  // AUTO-UPDATE: replace USERNAME/REPO in @downloadURL/@updateURL above, upload
-  // this file to that GitHub repo, and bump @version each time you publish a
-  // change. Tampermonkey checks the raw URL and installs the newer version.
 
-  // ---- CONFIG: website ----
-  const HOUR_CLASS = 'css-72tofv';        // route hour, e.g. "3.5 hr"
-  const CODE_CLASS = 'css-1s62r5';        // route code, e.g. "SB_A1" or "SB_A1 X"
-  const PAGINATION_CLASS = 'css-1pa2mtb'; // wrapper holding the route data and pager
-  const NURSERY_SUFFIX = 'Nursery Route X'; // marker placed beside a nursery route code
+  const HOUR_CLASS = 'css-72tofv';        
+  const CODE_CLASS = 'css-1s62r5';        
+  const PAGINATION_CLASS = 'css-1pa2mtb'; 
+  const NURSERY_SUFFIX = 'Nursery Route X'; 
 
-  // ---- CONFIG: sheet layout (hour header + routes below) ----
-  const BLOCK_COLS = 2;        // columns per block: route code | nursery marker
-  const COL_GAP = 2;           // empty columns between blocks
-  const BLOCKS_PER_ROW = 3;    // hour blocks side by side
-  const MIN_BLOCK_ROWS = 13;   // minimum block height; first row = route hour title
-  const ROW_GAP = 2;           // empty rows between block rows
+ 
+  const BLOCK_COLS = 2;        
+  const COL_GAP = 2;          
+  const BLOCKS_PER_ROW = 3;   
+  const MIN_BLOCK_ROWS = 13;   
+  const ROW_GAP = 2;           
 
   const clean = (s) => (s || '').replace(/\s+/g, ' ').trim();
 
-  // In-memory only — nothing is written to GM/local storage.
-  // Shape: { "3.5 hr": { "SB_A1": true /*nursery*/, "SB_A12": false }, ... }
+
   const data = {};
 
-  // ---------- scraping ----------
+
   function scan() {
     let currentHour = null;
     document.querySelectorAll('.' + HOUR_CLASS + ', .' + CODE_CLASS).forEach((el) => {
@@ -54,13 +49,12 @@
     });
   }
 
-  // ---------- grid + CSV ----------
+ 
   function hoursSorted(d) {
     return Object.keys(d).sort((a, b) => parseFloat(a) - parseFloat(b) || a.localeCompare(b));
   }
 
-  // One block per route hour: hour header on top, then one route per row:
-  // column 1 = real route code, column 2 = "Nursery Route X" when flagged.
+
   function buildGrid() {
     const hours = hoursSorted(data);
     if (!hours.length) return [];
@@ -78,11 +72,11 @@
     hours.forEach((h, i) => {
       const r0 = Math.floor(i / BLOCKS_PER_ROW) * (blockRows + ROW_GAP);
       const c0 = (i % BLOCKS_PER_ROW) * (BLOCK_COLS + COL_GAP);
-      grid[r0][c0] = h;                                      // hour header
+      grid[r0][c0] = h;                                     
       codes[i].forEach((code, j) => {
-        const r = r0 + 1 + j;                                // one row per route
-        grid[r][c0] = code;                                  // real route code
-        if (data[h][code]) grid[r][c0 + 1] = NURSERY_SUFFIX; // nursery marker
+        const r = r0 + 1 + j;                              
+        grid[r][c0] = code;                                  
+        if (data[h][code]) grid[r][c0 + 1] = NURSERY_SUFFIX; 
       });
     });
     return grid;
@@ -106,7 +100,7 @@
     return true;
   }
 
-  // ---------- pagination (same logic as the working V3) ----------
+ 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   const getBars = () => Array.from(document.querySelectorAll('.' + PAGINATION_CLASS));
@@ -134,7 +128,7 @@
                      !e.querySelector('.' + HOUR_CLASS + ', .' + CODE_CLASS));
   }
 
-  // The next button's label lives on nested <span aria-label> elements.
+
   function labelOf(e) {
     const own = clean(e.getAttribute('aria-label') || e.getAttribute('title') || e.textContent);
     if (own) return own;
@@ -142,7 +136,7 @@
     return inner ? clean(inner.getAttribute('aria-label') || inner.getAttribute('title')) : '';
   }
 
-  // "2", "Go to page 2", "Current page, page 2" -> 2; ignore next/prev labels
+ 
   function pageNumberFrom(label) {
     if (/next|previous|prev/i.test(label)) return 0;
     if (/^\d+$/.test(label)) return Number(label);
@@ -216,7 +210,7 @@
     let pages = 0;
     const visited = new Set();
 
-    // go to page 1 first
+ 
     let sig = signature();
     if (clickPageNumber(1)) await waitChange(sig, 1500);
 
@@ -228,14 +222,14 @@
       if (!getBars().length) break;
       let advanced = false;
 
-      // 1) try "next" — verify a real page change
+
       for (const el of nextCandidates()) {
         const prev = signature();
         el.click();
         if (await waitChange(prev, 2500)) { advanced = true; break; }
       }
 
-      // 2) fall back to numbered page links
+
       if (!advanced) {
         for (const n of numberedPages().filter((n) => n !== 1)) {
           const prev = signature();
@@ -253,7 +247,7 @@
     return pages;
   }
 
-  // ---------- UI: red dot -> manual trigger ----------
+  
   const host = document.createElement('div');
   host.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:2147483647;';
   const root = host.attachShadow({ mode: 'open' });
@@ -273,7 +267,7 @@
     running = true;
     dot.classList.add('busy');
     dot.title = 'Collecting...';
-    // fresh in-memory data on every run (nothing is stored)
+
     Object.keys(data).forEach((h) => delete data[h]);
     try {
       scan();
