@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name         Route Hour Table Auto CSV
 // @namespace    route-hour-table
-// @version      5.4
+// @version      5.10
 // @description  Click the red dot to collect all route codes from every page and download a CSV. No storage.
 // @match        *://eu.dispatch.planning.last-mile.a2z.com/route-sheets/*
-// @downloadURL  https://raw.githubusercontent.com/akshayparakh036-ctrl/routeHourCollectionCSV/refs/heads/main/route-hour-table.user.js
-// @updateURL    https://raw.githubusercontent.com/akshayparakh036-ctrl/routeHourCollectionCSV/refs/heads/main/route-hour-table.user.js
+// @downloadURL  https://raw.githubusercontent.com/akshayparakh036-ctrl/routeHourCollectionCSV/refs/heads/main/route-hour-table.user.js?v=5.10
+// @updateURL    https://raw.githubusercontent.com/akshayparakh036-ctrl/routeHourCollectionCSV/refs/heads/main/route-hour-table.user.js?v=5.10
 // @author       Akshay(akparaks) 
 // ==/UserScript==
 
